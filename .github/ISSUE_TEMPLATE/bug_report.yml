@@ -1,0 +1,36 @@
+name: Bug Report
+description: Create a report to help us improve the Agentforce Lead Capture Agent
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this? E.g., specific utterances used in preview.
+    validations:
+      required: true
+  - type: textarea
+    id: trace
+    attributes:
+      label: Relevant Log/Trace Output
+      description: Please copy and paste any relevant output from your `sf agent preview` trace.
+      render: JSON
+  - type: input
+    id: sf-version
+    attributes:
+      label: Salesforce CLI Version
+      description: What version of the sf cli are you running (`sf --version`)?
+    validations:
+      required: true
