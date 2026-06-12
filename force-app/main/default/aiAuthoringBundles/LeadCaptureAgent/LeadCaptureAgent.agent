@@ -1,0 +1,114 @@
+system:
+    instructions: "You are a lead capture assistant. Your only job is to collect the minimum details needed to create a Salesforce Lead record: last name and company. Be brief, clear, and professional. Never invent values. If either value is missing, ask only for the missing value. Once both values are present, create the lead."
+    messages:
+        welcome: "Hi, I can create a lead for you. I only need your last name and company."
+        error: "Sorry, something went wrong while creating the lead."
+
+config:
+    developer_name: "LeadCaptureAgent"
+    agent_label: "Lead Capture Agent"
+    description: "Minimal Agentforce service agent that collects last name and company, then creates a Lead through Apex with Status set to New."
+    agent_type: "AgentforceServiceAgent"
+    default_agent_user: "agent_user@example.com"
+
+variables:
+    EndUserId: linked string
+        source: @MessagingSession.MessagingEndUserId
+        description: "Messaging End User ID"
+    RoutableId: linked string
+        source: @MessagingSession.Id
+        description: "Messaging Session ID"
+    ContactId: linked string
+        source: @MessagingEndUser.ContactId
+        description: "Contact ID"
+    EndUserLanguage: linked string
+        source: @MessagingSession.EndUserLanguage
+        description: "Messaging session language"
+    last_name: mutable string = ""
+        description: "Lead last name"
+    company: mutable string = ""
+        description: "Lead company"
+    lead_created: mutable boolean = False
+        description: "Whether the lead has already been created"
+    last_lead_id: mutable string = ""
+        description: "The most recently created Lead ID"
+
+language:
+    default_locale: "en_US"
+    additional_locales: ""
+    all_additional_locales: False
+
+start_agent agent_router:
+    label: "Agent Router"
+    description: "Route lead capture requests to the lead capture subagent."
+    reasoning:
+        instructions: ->
+            | For greetings, briefly explain that you can create a lead using last name and company.
+              For any request to create a lead, collect lead details, or provide last name/company, route to Lead Capture.
+        actions:
+            go_to_lead_capture: @utils.transition to @subagent.lead_capture
+                description: "Create a Lead or collect the required lead details."
+
+subagent lead_capture:
+    label: "Lead Capture"
+    description: "Collect last name and company, then create a Salesforce Lead through Apex."
+    actions:
+        process_lead_turn:
+            label: "Process Lead Capture Turn"
+            description: "Use the current user message plus any already known last name and company to determine missing values or create a Lead with Status set to New."
+            target: "apex://LeadCaptureTurnAction"
+            inputs:
+                userMessage: string
+                    label: "User Message"
+                    description: "The current user message for this turn."
+                    is_required: True
+                knownLastName: string
+                    label: "Known Last Name"
+                    description: "The last name already collected earlier in the conversation, if any."
+                    is_required: False
+                knownCompany: string
+                    label: "Known Company"
+                    description: "The company already collected earlier in the conversation, if any."
+                    is_required: False
+            outputs:
+                isSuccess: boolean
+                    description: "Whether the lead was created successfully"
+                    is_displayable: False
+                leadId: string
+                    description: "ID of the created Lead record"
+                    is_displayable: True
+                status: string
+                    description: "Status set on the created Lead"
+                    is_displayable: True
+                resolvedLastName: string
+                    description: "Resolved last name after processing the current turn"
+                    is_displayable: False
+                resolvedCompany: string
+                    description: "Resolved company after processing the current turn"
+                    is_displayable: False
+                needsLastName: boolean
+                    description: "Whether last name is still missing"
+                    is_displayable: False
+                needsCompany: boolean
+                    description: "Whether company is still missing"
+                    is_displayable: False
+                message: string
+                    description: "Human-readable result message"
+                    is_displayable: True
+
+    reasoning:
+        instructions: ->
+            if @variables.lead_created == True:
+                | A lead has already been created in this conversation. Share the Lead ID and ask if the user wants anything else related to the lead.
+            if @variables.lead_created == False:
+                | Use Process Lead Capture Turn for every lead-capture message. Do not say a lead was created unless Process Lead Capture Turn returns isSuccess = true and a Lead ID.
+        actions:
+            process_lead_turn: @actions.process_lead_turn
+                    with userMessage = ...
+                    with knownLastName = @variables.last_name
+                    with knownCompany = @variables.company
+                    set @variables.last_name = @outputs.resolvedLastName
+                    set @variables.company = @outputs.resolvedCompany
+                    set @variables.lead_created = @outputs.isSuccess
+                    set @variables.last_lead_id = @outputs.leadId
+                    description: "Process the current lead-capture turn and create the lead when enough data is available. Use the returned message if required fields are missing or creation fails."

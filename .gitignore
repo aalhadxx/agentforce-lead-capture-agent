@@ -1,0 +1,20 @@
+# Salesforce DX
+.sf/
+.sfdx/
+.local_store/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
